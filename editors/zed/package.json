@@ -1,0 +1,73 @@
+{
+  "name": "zed-mustache-json5",
+  "version": "0.1.0",
+  "description": "Zed extension for Mustache JSON5 templates with syntax highlighting and formatting",
+  "main": "extension.toml",
+  "files": [
+    "extension.toml",
+    "languages/",
+    "grammars/",
+    "queries/",
+    "README.md",
+    "install-formatter.sh"
+  ],
+  "scripts": {
+    "install-formatter": "./install-formatter.sh",
+    "test": "echo \"No tests specified\" && exit 0",
+    "package": "tar -czf mustache-json5-zed-extension.tar.gz extension.toml languages/ grammars/ queries/ README.md install-formatter.sh"
+  },
+  "keywords": [
+    "zed",
+    "extension",
+    "mustache",
+    "json5",
+    "templates",
+    "syntax-highlighting",
+    "formatter",
+    "tree-sitter"
+  ],
+  "author": "Tree-sitter-mustache-json5 Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tree-sitter/tree-sitter-mustache_json5.git",
+    "directory": "editors/zed"
+  },
+  "bugs": {
+    "url": "https://github.com/tree-sitter/tree-sitter-mustache_json5/issues"
+  },
+  "homepage": "https://github.com/tree-sitter/tree-sitter-mustache_json5#readme",
+  "engines": {
+    "zed": ">=0.120.0"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "peerDependencies": {
+    "mustache-json5-fmt": ">=0.1.0"
+  },
+  "extensionManifest": {
+    "name": "Mustache JSON5",
+    "id": "mustache-json5",
+    "description": "Language support for Mustache JSON5 templates",
+    "version": "0.1.0",
+    "publisher": "tree-sitter-mustache-json5",
+    "categories": ["Languages", "Formatters"],
+    "contributes": {
+      "languages": [
+        {
+          "id": "mustache_json5",
+          "aliases": ["Mustache JSON5", "mustache-json5"],
+          "extensions": [".mustache_json5", ".mjson5"],
+          "configuration": "./languages/mustache_json5.toml"
+        }
+      ],
+      "grammars": [
+        {
+          "language": "mustache_json5",
+          "scopeName": "source.mustache_json5",
+          "path": "./grammars/mustache_json5.wasm"
+        }
+      ]
+    }
+  }
+}

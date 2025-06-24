@@ -1,0 +1,26 @@
+[repository]
+branch = "main"
+commit = "HEAD"
+
+[build]
+path = "src"
+tree_sitter = ">=0.20.0"
+cc = "cc"
+
+[highlights]
+path = "queries/highlights.scm"
+
+[indents]
+path = "queries/indents.scm"
+
+[folds]
+path = "queries/folds.scm"
+
+[injections]
+path = "queries/injections.scm"
+
+[locals]
+path = "queries/locals.scm"
+
+[lints]
+path = "queries/lints.scm"
