@@ -1,0 +1,36 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
+  "grammars": [
+    {
+      "name": "mustache_json5",
+      "camelcase": "MustacheJson5",
+      "title": "MustacheJson5",
+      "scope": "source.mustache_json5",
+      "file-types": ["mustache_json5"],
+      "injection-regex": "^mustache_json5$",
+      "class-name": "TreeSitterMustacheJson5"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "MustacheJson5 grammar for tree-sitter",
+    "authors": [
+      {
+        "name": "nuiz"
+      }
+    ],
+    "links": {
+      "repository": "https://github.com/patiwet/tree-sitter-mustache_json5"
+    }
+  },
+  "bindings": {
+    "c": true,
+    "go": true,
+    "node": true,
+    "python": true,
+    "rust": true,
+    "swift": true,
+    "zig": false
+  }
+}
