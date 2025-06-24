@@ -54,7 +54,6 @@ echo -e "\n${YELLOW}📂 Copying directories...${NC}"
 directories_to_copy=(
     "languages"
     "grammars"
-    "queries"
 )
 
 for dir in "${directories_to_copy[@]}"; do
@@ -160,9 +159,9 @@ Platform: $(uname -s) $(uname -m)
 
 Files included:
 - Extension configuration (extension.toml)
-- Language definition (languages/mustache_json5.toml)
-- Tree-sitter grammar (grammars/mustache_json5.wasm)
-- Syntax highlighting queries (queries/mustache_json5/*.scm)
+- Language definition (languages/mustache-json5/config.toml)
+- Tree-sitter grammar (grammars/)
+- Syntax highlighting queries (languages/mustache-json5/*.scm)
 - Formatter installation script (install-formatter.sh)
 - Test files and documentation
 

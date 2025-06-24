@@ -1,0 +1,81 @@
+{
+  // Test file for Zed Mustache JSON5 extension
+  name: "Zed Extension Test",
+  version: 1.0,
+
+  // Test basic JSON5 features
+  unquoted_key: "value",
+  'single_quotes': true,
+  trailing_comma: "allowed",
+
+  // Test Mustache interpolation
+  greeting: "Hello {{user.name}}!",
+  message: "Welcome to {{app.title}}",
+
+  // Test Mustache sections
+  users: [
+    {{#each users}}
+    {
+      id: {{@index}},
+      name: "{{name}}",
+      email: "{{email}}",
+      {{#if active}}
+      status: "active",
+      {{/if}}
+      {{#unless deleted}}
+      visible: true,
+      {{/unless}}
+    }{{#unless @last}},{{/unless}}
+    {{/each}}
+  ],
+
+  // Test nested objects with templates
+  config: {
+    theme: "{{settings.theme}}",
+    features: {
+      notifications: {{settings.notifications}},
+      analytics: {{settings.analytics}},
+      {{#if settings.beta}}
+      beta_features: true,
+      {{/if}}
+    }
+  },
+
+  // Test unescaped output
+  content: {{{html.body}}},
+  raw_data: {{{json.data}}},
+
+  // Test partials
+  header: {{> components/header}},
+  footer: {{> components/footer}},
+
+  // Test comments
+  {{! This is a Mustache comment }}
+  /* This is a JSON5 comment */
+  // This is also a JSON5 comment
+
+  // Test helpers with parameters
+  formatted_date: "{{formatDate created_at 'YYYY-MM-DD'}}",
+  truncated_text: "{{truncate description 100}}",
+
+  // Test complex nested structure
+  navigation: [
+    {{#each nav_items}}
+    {
+      label: "{{title}}",
+      url: "{{url}}",
+      {{#if children}}
+      children: [
+        {{#each children}}
+        {
+          label: "{{title}}",
+          url: "{{url}}"
+        }{{#unless @last}},{{/unless}}
+        {{/each}}
+      ],
+      {{/if}}
+      active: {{#if @first}}true{{else}}false{{/if}}
+    }{{#unless @last}},{{/unless}}
+    {{/each}}
+  ]
+}
