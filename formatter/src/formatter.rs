@@ -66,7 +66,12 @@ impl MustacheJson5Formatter {
             .context("Failed to parse source code")?;
 
         if tree.root_node().has_error() {
-            return Err(anyhow::anyhow!("Syntax error in source code"));
+            // Check if this looks like mixed content (contains mustache syntax)
+            if source.contains("{{") && source.contains("}}") {
+                // Allow formatting of mixed content with parsing errors
+            } else {
+                return Err(anyhow::anyhow!("Syntax error in source code"));
+            }
         }
 
         let formatted = self.format_tree(&tree, source)?;
@@ -106,7 +111,7 @@ impl<'a> NodeFormatter<'a> {
         let _indent_changes = self.get_indent_changes(node);
 
         match node.kind() {
-            "template_document" => {
+            "source_file" | "document" | "json5_document" | "template_document" => {
                 for child in node.children(&mut node.walk()) {
                     if !child.is_named() {
                         continue;
@@ -141,9 +146,32 @@ impl<'a> NodeFormatter<'a> {
             "comment" => {
                 result.push_str(&self.format_json5_comment(node, current_indent)?);
             }
-            _ => {
-                // For other nodes, preserve original content with proper indentation
+            "string" | "number" | "true" | "false" | "null" | "identifier" | "name" => {
+                // Handle primitive values and names directly
                 result.push_str(&self.get_node_text(node));
+            }
+            "text" => {
+                // Handle text nodes (may contain mustache content)
+                result.push_str(&self.get_node_text(node));
+            }
+            "ERROR" => {
+                // Handle error nodes by preserving their content
+                result.push_str(&self.get_node_text(node));
+            }
+            _ => {
+                // For other nodes, check if they have children to format
+                if node.child_count() > 0 {
+                    for child in node.children(&mut node.walk()) {
+                        if child.is_named() {
+                            result.push_str(&self.format_node(child, current_indent)?);
+                        } else {
+                            result.push_str(&self.get_node_text(child));
+                        }
+                    }
+                } else {
+                    // Leaf node, preserve original content
+                    result.push_str(&self.get_node_text(node));
+                }
             }
         }
 
@@ -153,161 +181,90 @@ impl<'a> NodeFormatter<'a> {
     fn format_object(&mut self, node: Node, indent: usize) -> Result<String> {
         let mut result = String::new();
         let mut cursor = node.walk();
-        let mut is_first_member = true;
         let inner_indent = indent + 1;
+        let multiline = self.should_format_multiline_object(node);
 
-        for child in node.children(&mut cursor) {
-            match child.kind() {
-                "{" => {
-                    result.push('{');
-                    // Check if object is multiline
-                    if self.should_format_multiline_object(node) {
-                        result.push('\n');
-                    }
+        // Collect all members first
+        let members: Vec<Node> = node
+            .children(&mut cursor)
+            .filter(|child| child.kind() == "member")
+            .collect();
+
+        result.push('{');
+
+        if multiline && !members.is_empty() {
+            result.push('\n');
+
+            for (i, member) in members.iter().enumerate() {
+                result.push_str(&self.indent_string(inner_indent));
+                result.push_str(&self.format_object_member(*member, inner_indent)?);
+
+                if i < members.len() - 1 {
+                    result.push(',');
                 }
-                "}" => {
-                    if self.should_format_multiline_object(node) {
-                        result.push('\n');
-                        result.push_str(&self.indent_string(indent));
-                    }
-                    result.push('}');
+                result.push('\n');
+            }
+
+            result.push_str(&self.indent_string(indent));
+        } else if !members.is_empty() {
+            // Single line format
+            for (i, member) in members.iter().enumerate() {
+                if i > 0 {
+                    result.push_str(", ");
                 }
-                "member" => {
-                    if self.should_format_multiline_object(node) {
-                        if !is_first_member {
-                            result.push(',');
-                            result.push('\n');
-                        }
-                        result.push_str(&self.indent_string(inner_indent));
-                        result.push_str(&self.format_object_member(child, inner_indent)?);
-                        is_first_member = false;
-                    } else {
-                        if !is_first_member {
-                            result.push_str(", ");
-                        }
-                        result.push_str(&self.format_object_member(child, inner_indent)?);
-                        is_first_member = false;
-                    }
-                }
-                "," => {
-                    // Commas are handled in member formatting
-                }
-                _ if child.is_named() => {
-                    result.push_str(&self.format_node(child, inner_indent)?);
-                }
-                _ => {
-                    // Handle whitespace and other unnamed nodes
-                    if !self.should_format_multiline_object(node) {
-                        let text = self.get_node_text(child);
-                        if !text.trim().is_empty() {
-                            result.push_str(text);
-                        }
-                    }
-                }
+                result.push_str(&self.format_object_member(*member, inner_indent)?);
             }
         }
 
+        result.push('}');
         Ok(result)
     }
 
     fn format_array(&mut self, node: Node, indent: usize) -> Result<String> {
         let mut result = String::new();
         let mut cursor = node.walk();
-        let mut is_first_element = true;
         let inner_indent = indent + 1;
+        let multiline = self.should_format_multiline_array(node);
 
-        for child in node.children(&mut cursor) {
-            match child.kind() {
-                "[" => {
-                    result.push('[');
-                    if self.should_format_multiline_array(node) {
-                        result.push('\n');
-                    }
+        // Collect all array elements (skip brackets and commas)
+        let elements: Vec<Node> = node
+            .children(&mut cursor)
+            .filter(|child| child.is_named() && child.kind() != "[" && child.kind() != "]")
+            .collect();
+
+        result.push('[');
+
+        if multiline && !elements.is_empty() {
+            result.push('\n');
+
+            for (i, element) in elements.iter().enumerate() {
+                result.push_str(&self.indent_string(inner_indent));
+                result.push_str(&self.format_node(*element, inner_indent)?);
+
+                if i < elements.len() - 1 {
+                    result.push(',');
                 }
-                "]" => {
-                    if self.should_format_multiline_array(node) {
-                        result.push('\n');
-                        result.push_str(&self.indent_string(indent));
-                    }
-                    result.push(']');
+                result.push('\n');
+            }
+
+            result.push_str(&self.indent_string(indent));
+        } else if !elements.is_empty() {
+            // Single line format
+            for (i, element) in elements.iter().enumerate() {
+                if i > 0 {
+                    result.push_str(", ");
                 }
-                "," => {
-                    // Commas are handled in element formatting
-                }
-                _ if child.is_named() => {
-                    if self.should_format_multiline_array(node) {
-                        if !is_first_element {
-                            result.push(',');
-                            result.push('\n');
-                        }
-                        result.push_str(&self.indent_string(inner_indent));
-                        result.push_str(&self.format_node(child, inner_indent)?);
-                        is_first_element = false;
-                    } else {
-                        if !is_first_element {
-                            result.push_str(", ");
-                        }
-                        result.push_str(&self.format_node(child, inner_indent)?);
-                        is_first_element = false;
-                    }
-                }
-                _ => {
-                    // Handle whitespace and other unnamed nodes
-                    if !self.should_format_multiline_array(node) {
-                        let text = self.get_node_text(child);
-                        if !text.trim().is_empty() {
-                            result.push_str(text);
-                        }
-                    }
-                }
+                result.push_str(&self.format_node(*element, inner_indent)?);
             }
         }
 
+        result.push(']');
         Ok(result)
     }
 
-    fn format_mustache_section(&mut self, node: Node, indent: usize) -> Result<String> {
-        let mut result = String::new();
-        let inner_indent = match self.config.mustache_indent_style {
-            crate::config::MustacheIndentStyle::Block => indent + 1,
-            crate::config::MustacheIndentStyle::Minimal => indent,
-            crate::config::MustacheIndentStyle::Preserve => indent,
-        };
-
-        for child in node.children(&mut node.walk()) {
-            match child.kind() {
-                "mustache_section_begin" => {
-                    result.push_str(&self.indent_string(indent));
-                    result.push_str(&self.format_mustache_delimiter(child)?);
-                    result.push('\n');
-                }
-                "mustache_section_end" => {
-                    result.push_str(&self.indent_string(indent));
-                    result.push_str(&self.format_mustache_delimiter(child)?);
-                }
-                "template_content" => {
-                    let content = self.format_node(child, inner_indent)?;
-                    if !content.trim().is_empty() {
-                        result.push_str(&content);
-                        if !content.ends_with('\n') {
-                            result.push('\n');
-                        }
-                    }
-                }
-                _ if child.is_named() => {
-                    result.push_str(&self.format_node(child, inner_indent)?);
-                }
-                _ => {
-                    // Handle whitespace between sections
-                    let text = self.get_node_text(child);
-                    if text.contains('\n') {
-                        result.push('\n');
-                    }
-                }
-            }
-        }
-
-        Ok(result)
+    fn format_mustache_section(&mut self, node: Node, _indent: usize) -> Result<String> {
+        // For now, preserve mustache sections as-is to avoid breaking mixed content
+        Ok(self.get_node_text(node).to_string())
     }
 
     fn format_mustache_inverted_section(&mut self, node: Node, indent: usize) -> Result<String> {
@@ -368,18 +325,33 @@ impl<'a> NodeFormatter<'a> {
 
     fn format_object_member(&mut self, node: Node, indent: usize) -> Result<String> {
         let mut result = String::new();
+        let mut cursor = node.walk();
+        let children: Vec<Node> = node.children(&mut cursor).collect();
 
-        for child in node.children(&mut node.walk()) {
+        for (_i, child) in children.iter().enumerate() {
             match child.kind() {
                 ":" => {
                     result.push_str(": ");
                 }
+                "string" | "identifier" | "name" => {
+                    // Format the key or value
+                    let text = self.get_node_text(*child);
+                    result.push_str(text);
+                }
+                "number" | "true" | "false" | "null" => {
+                    // Format primitive values
+                    let text = self.get_node_text(*child);
+                    result.push_str(text);
+                }
                 _ if child.is_named() => {
-                    result.push_str(&self.format_node(child, indent)?);
+                    result.push_str(&self.format_node(*child, indent)?);
                 }
                 _ => {
-                    let text = self.get_node_text(child);
-                    if !text.trim().is_empty() {
+                    // Handle whitespace and other tokens
+                    let text = self.get_node_text(*child);
+                    if text == ":" {
+                        result.push_str(": ");
+                    } else if !text.trim().is_empty() {
                         result.push_str(text);
                     }
                 }
@@ -413,23 +385,24 @@ impl<'a> NodeFormatter<'a> {
     }
 
     fn should_format_multiline_object(&self, node: Node) -> bool {
-        // Check if object spans multiple lines or has more than 2 members
+        // Check if object spans multiple lines or has more than 1 member
         let member_count = node
             .children(&mut node.walk())
             .filter(|child| child.kind() == "member")
             .count();
 
-        member_count > 2 || self.node_spans_multiple_lines(node)
+        // Format as multiline if more than 1 member for better readability
+        member_count > 1 || self.node_spans_multiple_lines(node)
     }
 
     fn should_format_multiline_array(&self, node: Node) -> bool {
-        // Check if array spans multiple lines or has more than 3 elements
+        // Check if array spans multiple lines or has more than 2 elements
         let element_count = node
             .children(&mut node.walk())
             .filter(|child| child.is_named() && child.kind() != "[" && child.kind() != "]")
             .count();
 
-        element_count > 3 || self.node_spans_multiple_lines(node)
+        element_count > 2 || self.node_spans_multiple_lines(node)
     }
 
     fn node_spans_multiple_lines(&self, node: Node) -> bool {
