@@ -12,5 +12,5 @@ brackets = [
   { start = "'", end = "'", close = true, newline = false, not_in = ["string"] }
 ]
 
-[language_servers.mustache_json5]
-name = "mustache_json5_language_server"
+[formatter]
+external = { command = "mustache-json5-fmt", arguments = ["--stdin"] }

@@ -1,7 +1,3 @@
-[repository]
-branch = "main"
-commit = "HEAD"
-
 [build]
 path = "src"
 tree_sitter = ">=0.20.0"
